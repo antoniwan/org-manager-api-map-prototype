@@ -20,9 +20,9 @@ export default function Home() {
     const fetchOrganizations = async () => {
       const loadingToast = toast.loading("Loading organizations...");
       try {
-        // Simulate network delay
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        setOrganizations(mockOrganizations);
+        const response = await fetch("/api/organizations");
+        const data = await response.json();
+        setOrganizations(data);
         toast.success("Organizations loaded successfully!", {
           id: loadingToast,
         });
@@ -35,6 +35,10 @@ export default function Home() {
 
     fetchOrganizations();
   }, []);
+
+  const handleOrganizationsChange = (newOrgs: typeof mockOrganizations) => {
+    setOrganizations(newOrgs);
+  };
 
   const handleCategoriesChange = (newCategories: Category[]) => {
     setSelectedCategories(newCategories);
@@ -56,6 +60,7 @@ export default function Home() {
         <OrgMap
           organizations={organizations}
           selectedCategories={selectedCategories}
+          onOrganizationsChange={handleOrganizationsChange}
         />
         <CategoryFilter onCategoriesChange={handleCategoriesChange} />
       </main>

@@ -1,83 +1,59 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import "leaflet/dist/leaflet.css";
 import { Organization, Category } from "../data/mockOrgs";
 import CategoryIcon from "./CategoryIcon";
 import { renderToString } from "react-dom/server";
 import { useLocation } from "../contexts/LocationContext";
 import type L from "leaflet";
+import { toast } from "react-hot-toast";
 
 interface OrgMapProps {
   organizations: Organization[];
   selectedCategories: Category[];
+  onOrganizationsChange?: (orgs: Organization[]) => void;
 }
 
 export default function OrgMap({
   organizations,
   selectedCategories,
+  onOrganizationsChange,
 }: OrgMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
   const { location } = useLocation();
   const [isMapReady, setIsMapReady] = useState(false);
-  const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const lastBoundsRef = useRef<string | null>(null);
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMovingRef = useRef(false);
+  const hasInitializedRef = useRef(false);
+  const userMarkerRef = useRef<L.Marker | null>(null);
 
-  // First effect: Load Leaflet and initialize map
+  // Initialize map
   useEffect(() => {
-    let mounted = true;
-
-    const loadLeaflet = async () => {
-      if (typeof window === "undefined") return;
-
-      try {
-        console.log("Loading Leaflet...");
-        const L = await import("leaflet");
-        if (!mounted) return;
-
-        console.log("Leaflet loaded successfully");
-        setLeafletLoaded(true);
-      } catch (error) {
-        console.error("Error loading Leaflet:", error);
-      }
-    };
-
-    loadLeaflet();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  // Second effect: Initialize map once Leaflet is loaded
-  useEffect(() => {
-    if (!leafletLoaded) return;
+    if (typeof window === "undefined" || hasInitializedRef.current) return;
 
     const initMap = async () => {
       try {
-        console.log("Starting map initialization...");
         const L = await import("leaflet");
 
-        // Ensure the map container exists
+        // Create map instance
         const mapContainer = document.getElementById("map");
         if (!mapContainer) {
           console.error("Map container not found");
           return;
         }
 
-        // Clear any existing map instance
+        // Clear existing map if any
         if (mapRef.current) {
-          console.log("Cleaning up existing map instance");
           mapRef.current.remove();
           mapRef.current = null;
         }
 
-        console.log("Creating new map instance with location:", location);
-        const initialCenter: L.LatLngExpression = location
-          ? [location.latitude, location.longitude]
-          : [40.7128, -74.006];
-
-        mapRef.current = L.map("map", {
+        // Initialize map with default center
+        const map = L.map("map", {
           zoomControl: true,
           attributionControl: true,
           scrollWheelZoom: true,
@@ -86,8 +62,9 @@ export default function OrgMap({
           dragging: true,
           keyboard: true,
           touchZoom: true,
-        }).setView(initialCenter, 13);
+        }).setView([40.7128, -74.006], 13);
 
+        // Add tile layer
         L.tileLayer(
           "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
           {
@@ -97,16 +74,23 @@ export default function OrgMap({
               '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
             subdomains: "abcd",
           }
-        ).addTo(mapRef.current);
+        ).addTo(map);
 
-        // Wait a bit for the map to be fully rendered
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // Store map reference
+        mapRef.current = map;
+        setIsMapReady(true);
+        hasInitializedRef.current = true;
 
-        if (mapRef.current) {
-          mapRef.current.invalidateSize();
-          console.log("Map initialized successfully");
-          setIsMapReady(true);
+        // Add user location if available
+        if (location) {
+          addUserMarker(map, location);
         }
+
+        // Setup map event listeners
+        setupMapEventListeners(map);
+
+        // Initial data fetch
+        fetchOrganizationsForBounds(map.getBounds());
       } catch (error) {
         console.error("Error initializing map:", error);
       }
@@ -118,155 +102,234 @@ export default function OrgMap({
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
+        hasInitializedRef.current = false;
         setIsMapReady(false);
       }
     };
-  }, [leafletLoaded, location]);
+  }, [location]);
 
-  // Third effect: Handle markers
-  useEffect(() => {
-    if (!isMapReady || !mapRef.current || !leafletLoaded) {
-      console.log("Skipping marker update - conditions not met:", {
-        isMapReady,
-        hasMap: !!mapRef.current,
-        leafletLoaded,
+  const addUserMarker = useCallback(
+    (map: L.Map, userLocation: { latitude: number; longitude: number }) => {
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+      }
+
+      const L = require("leaflet");
+      const userIcon = L.divIcon({
+        className: "custom-marker",
+        html: renderToString(
+          <div className="p-1 rounded-full shadow-xl">
+            <div className="w-14 h-14 rounded-full bg-blue-500 border-4 border-white flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-white"></div>
+            </div>
+          </div>
+        ),
+        iconSize: [64, 64],
+        iconAnchor: [32, 32],
       });
-      return;
-    }
+
+      userMarkerRef.current = L.marker(
+        [userLocation.latitude, userLocation.longitude],
+        {
+          icon: userIcon,
+        }
+      ).addTo(map);
+    },
+    []
+  );
+
+  const setupMapEventListeners = useCallback(
+    (map: L.Map) => {
+      const toastId = "map-loading";
+
+      const handleMoveStart = () => {
+        isMovingRef.current = true;
+      };
+
+      const handleMoveEnd = () => {
+        isMovingRef.current = false;
+        if (!map) return;
+
+        const bounds = map.getBounds();
+        const boundsString = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
+
+        if (lastBoundsRef.current === boundsString) return;
+        lastBoundsRef.current = boundsString;
+
+        if (fetchTimeoutRef.current) {
+          clearTimeout(fetchTimeoutRef.current);
+        }
+
+        toast.loading("Loading locations in this area...", { id: toastId });
+
+        fetchTimeoutRef.current = setTimeout(async () => {
+          if (isMovingRef.current) return;
+
+          try {
+            setIsLoading(true);
+            const response = await fetch(
+              `/api/organizations?bounds=${boundsString}`
+            );
+            const newOrgs = await response.json();
+            onOrganizationsChange?.(newOrgs);
+
+            if (newOrgs.length === 0) {
+              toast.error("No locations found in this area", { id: toastId });
+            } else {
+              toast.success(`Found ${newOrgs.length} locations in this area`, {
+                id: toastId,
+              });
+            }
+          } catch (error) {
+            console.error("Error fetching organizations:", error);
+            toast.error("Failed to load locations", { id: toastId });
+          } finally {
+            setIsLoading(false);
+          }
+        }, 1000);
+      };
+
+      map.on("movestart", handleMoveStart);
+      map.on("moveend", handleMoveEnd);
+
+      return () => {
+        map.off("movestart", handleMoveStart);
+        map.off("moveend", handleMoveEnd);
+        if (fetchTimeoutRef.current) {
+          clearTimeout(fetchTimeoutRef.current);
+        }
+        toast.dismiss(toastId);
+      };
+    },
+    [onOrganizationsChange]
+  );
+
+  const fetchOrganizationsForBounds = useCallback(
+    async (bounds: L.LatLngBounds) => {
+      if (!onOrganizationsChange) return;
+
+      const boundsString = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
+      try {
+        const response = await fetch(
+          `/api/organizations?bounds=${boundsString}`
+        );
+        const newOrgs = await response.json();
+        onOrganizationsChange(newOrgs);
+      } catch (error) {
+        console.error("Error fetching initial organizations:", error);
+      }
+    },
+    [onOrganizationsChange]
+  );
+
+  // Update markers when organizations or categories change
+  useEffect(() => {
+    if (!isMapReady || !mapRef.current) return;
 
     const updateMarkers = async () => {
-      try {
-        console.log("Updating markers with:", {
-          organizationsCount: organizations.length,
-          selectedCategories,
-          hasLocation: !!location,
-        });
+      const L = await import("leaflet");
+      const map = mapRef.current;
+      if (!map) return;
 
-        const L = await import("leaflet");
+      // Clear existing markers
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current = [];
 
-        // Clear existing markers
-        markersRef.current.forEach((marker) => marker.remove());
-        markersRef.current = [];
+      const filteredOrgs = organizations.filter((org) =>
+        selectedCategories.includes(org.category)
+      );
 
-        const filteredOrgs = organizations.filter((org) =>
-          selectedCategories.includes(org.category)
-        );
+      const bounds = L.latLngBounds([]);
 
-        console.log(`Found ${filteredOrgs.length} organizations to display`);
-
-        const bounds = L.latLngBounds([]);
-
-        if (location) {
-          console.log("Adding user location marker at:", [
-            location.latitude,
-            location.longitude,
-          ]);
-          const userIcon = L.divIcon({
-            className: "custom-marker",
-            html: renderToString(
-              <div className="p-1 rounded-full shadow-xl">
-                <div className="w-14 h-14 rounded-full bg-blue-500 border-4 border-white flex items-center justify-center">
-                  <div className="w-8 h-8 rounded-full bg-white"></div>
-                </div>
-              </div>
-            ),
-            iconSize: [64, 64],
-            iconAnchor: [32, 32],
-          });
-
-          const userMarker = L.marker([location.latitude, location.longitude], {
-            icon: userIcon,
-          }).addTo(mapRef.current);
-
-          bounds.extend([location.latitude, location.longitude]);
-        }
-
-        filteredOrgs.forEach((org) => {
-          console.log(`Adding marker for ${org.name} at:`, [
-            org.latitude,
-            org.longitude,
-          ]);
-          const locationIcon = L.divIcon({
-            className: "custom-marker",
-            html: renderToString(
-              <div className="p-1 rounded-full shadow-xl">
-                <div className="w-14 h-14 rounded-full bg-yellow-400 border-4 border-white flex items-center justify-center">
-                  <CategoryIcon
-                    category={org.category}
-                    className="w-8 h-8 text-white"
-                  />
-                </div>
-              </div>
-            ),
-            iconSize: [64, 64],
-            iconAnchor: [32, 32],
-          });
-
-          const marker = L.marker([org.latitude, org.longitude], {
-            icon: locationIcon,
-          }).addTo(mapRef.current!).bindPopup(`
-            <div class="p-3 max-w-xs">
-              <h3 class="font-bold text-lg mb-1">${org.name}</h3>
-              <div class="text-sm text-gray-600 mb-2">${org.description}</div>
-              <div class="space-y-1 text-sm">
-                <div class="flex items-start">
-                  <span class="text-gray-500 w-20">Address:</span>
-                  <span class="text-gray-700">${org.address}</span>
-                </div>
-                <div class="flex items-center">
-                  <span class="text-gray-500 w-20">Phone:</span>
-                  <span class="text-gray-700">${org.phone}</span>
-                </div>
-                <div class="flex items-start">
-                  <span class="text-gray-500 w-20">Hours:</span>
-                  <span class="text-gray-700">${org.hours}</span>
-                </div>
-              </div>
-              <div class="mt-2">
-                <span class="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">${
-                  org.category
-                }</span>
-              </div>
-              <div class="mt-2">
-                <div class="flex flex-wrap gap-1">
-                  ${org.services
-                    .map(
-                      (service) =>
-                        `<span class="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded-full">${service}</span>`
-                    )
-                    .join("")}
-                </div>
+      filteredOrgs.forEach((org) => {
+        const locationIcon = L.divIcon({
+          className: "custom-marker",
+          html: renderToString(
+            <div className="p-1 rounded-full shadow-xl">
+              <div className="w-14 h-14 rounded-full bg-yellow-400 border-4 border-white flex items-center justify-center">
+                <CategoryIcon
+                  category={org.category}
+                  className="w-8 h-8 text-white"
+                />
               </div>
             </div>
-          `);
-          markersRef.current.push(marker);
-          bounds.extend([org.latitude, org.longitude]);
+          ),
+          iconSize: [64, 64],
+          iconAnchor: [32, 32],
         });
 
-        if (filteredOrgs.length > 0 || location) {
-          console.log("Fitting bounds to show all markers");
-          mapRef.current.fitBounds(bounds, {
-            padding: [50, 50],
-            maxZoom: 13,
-          });
-        }
-      } catch (error) {
-        console.error("Error updating markers:", error);
+        const marker = L.marker([org.latitude, org.longitude], {
+          icon: locationIcon,
+        }).addTo(map).bindPopup(`
+          <div class="p-3 max-w-xs">
+            <h3 class="font-bold text-lg mb-1">${org.name}</h3>
+            <div class="text-sm text-gray-600 mb-2">${org.description}</div>
+            <div class="space-y-1 text-sm">
+              <div class="flex items-start">
+                <span class="text-gray-500 w-20">Address:</span>
+                <span class="text-gray-700">${org.address}</span>
+              </div>
+              <div class="flex items-center">
+                <span class="text-gray-500 w-20">Phone:</span>
+                <span class="text-gray-700">${org.phone}</span>
+              </div>
+              <div class="flex items-start">
+                <span class="text-gray-500 w-20">Hours:</span>
+                <span class="text-gray-700">${org.hours}</span>
+              </div>
+            </div>
+            <div class="mt-2">
+              <span class="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">${
+                org.category
+              }</span>
+            </div>
+            <div class="mt-2">
+              <div class="flex flex-wrap gap-1">
+                ${org.services
+                  .map(
+                    (service) =>
+                      `<span class="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded-full">${service}</span>`
+                  )
+                  .join("")}
+              </div>
+            </div>
+          </div>
+        `);
+        markersRef.current.push(marker);
+        bounds.extend([org.latitude, org.longitude]);
+      });
+
+      if (filteredOrgs.length > 0) {
+        map.fitBounds(bounds, {
+          padding: [50, 50],
+          maxZoom: 13,
+        });
       }
     };
 
     updateMarkers();
-  }, [organizations, selectedCategories, location, isMapReady, leafletLoaded]);
+  }, [organizations, selectedCategories, isMapReady]);
 
   return (
-    <div
-      id="map"
-      className="w-full h-screen"
-      style={{
-        minHeight: "400px",
-        position: "relative",
-        zIndex: 1,
-      }}
-    />
+    <div className="relative w-full h-screen">
+      <div
+        id="map"
+        className="w-full h-full"
+        style={{
+          minHeight: "400px",
+          position: "relative",
+          zIndex: 1,
+        }}
+      />
+      {isLoading && (
+        <div
+          className="absolute top-4 right-4 bg-white p-2 rounded-lg shadow-lg"
+          role="status"
+          aria-label="Loading locations"
+        >
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+        </div>
+      )}
+    </div>
   );
 }
