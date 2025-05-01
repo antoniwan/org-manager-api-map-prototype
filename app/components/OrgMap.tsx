@@ -26,12 +26,12 @@ export default function OrgMap({
         mapRef.current = L.map("map", {
           zoomControl: false,
           attributionControl: false,
-          scrollWheelZoom: false,
-          doubleClickZoom: false,
-          boxZoom: false,
+          scrollWheelZoom: true,
+          doubleClickZoom: true,
+          boxZoom: true,
           dragging: true,
-          keyboard: false,
-          touchZoom: false,
+          keyboard: true,
+          touchZoom: true,
         }).setView([40.7128, -74.006], 13);
 
         // Use a simpler tile layer
@@ -48,19 +48,31 @@ export default function OrgMap({
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
 
+      // Create custom icon
+      const locationIcon = L.divIcon({
+        className: "custom-marker",
+        html: `
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#3B82F6"/>
+          </svg>
+        `,
+        iconSize: [24, 24],
+        iconAnchor: [12, 24],
+      });
+
       // Add markers for filtered organizations
       const filteredOrgs = organizations.filter((org) =>
         selectedCategories.includes(org.category)
       );
 
       filteredOrgs.forEach((org) => {
-        const marker = L.marker([org.latitude, org.longitude]).addTo(
-          mapRef.current!
-        ).bindPopup(`
-          <div class="p-2">
-            <h3 class="font-bold">${org.name}</h3>
-            <p class="text-sm">${org.description}</p>
-            <span class="text-xs text-gray-500">${org.category}</span>
+        const marker = L.marker([org.latitude, org.longitude], {
+          icon: locationIcon,
+        }).addTo(mapRef.current!).bindPopup(`
+          <div class="p-3">
+            <h3 class="font-bold text-lg mb-1">${org.name}</h3>
+            <p class="text-sm text-gray-600 mb-2">${org.description}</p>
+            <span class="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">${org.category}</span>
           </div>
         `);
         markersRef.current.push(marker);
