@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { Organization, Category } from "../data/mockOrgs";
 import CategoryIcon from "./CategoryIcon";
 import { renderToString } from "react-dom/server";
+import { useLocation } from "../contexts/LocationContext";
 
 interface OrgMapProps {
   organizations: Organization[];
@@ -17,6 +18,7 @@ export default function OrgMap({
 }: OrgMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
+  const { location } = useLocation();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -24,6 +26,7 @@ export default function OrgMap({
     console.log("Initializing map with data:", {
       organizations,
       selectedCategories,
+      userLocation: location,
     });
 
     // Dynamically import Leaflet
@@ -34,6 +37,10 @@ export default function OrgMap({
         // Initialize map if it hasn't been initialized
         if (!mapRef.current) {
           console.log("Creating new map instance");
+          const initialCenter: L.LatLngExpression = location
+            ? [location.latitude, location.longitude]
+            : [40.7128, -74.006]; // Default to NYC if no location
+
           mapRef.current = L.map("map", {
             zoomControl: true,
             attributionControl: true,
@@ -43,7 +50,7 @@ export default function OrgMap({
             dragging: true,
             keyboard: true,
             touchZoom: true,
-          }).setView([40.7128, -74.006], 13);
+          }).setView(initialCenter, 9);
 
           // Use a simpler tile layer
           L.tileLayer(
@@ -71,6 +78,28 @@ export default function OrgMap({
 
         // Create a bounds object to fit all markers
         const bounds = L.latLngBounds([]);
+
+        // Add user location marker if available
+        if (location) {
+          const userIcon = L.divIcon({
+            className: "custom-marker",
+            html: renderToString(
+              <div className="p-1 rounded-full shadow-xl">
+                <div className="w-14 h-14 rounded-full bg-blue-500 border-4 border-white flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-white"></div>
+                </div>
+              </div>
+            ),
+            iconSize: [64, 64],
+            iconAnchor: [32, 32],
+          });
+
+          const userMarker = L.marker([location.latitude, location.longitude], {
+            icon: userIcon,
+          }).addTo(mapRef.current!);
+
+          bounds.extend([location.latitude, location.longitude]);
+        }
 
         filteredOrgs.forEach((org) => {
           console.log("Creating marker for:", org.name, "at:", [
@@ -137,8 +166,8 @@ export default function OrgMap({
         });
 
         // Fit the map to show all markers if there are any
-        if (filteredOrgs.length > 0) {
-          console.log("Fitting bounds to show all markers");
+        if (filteredOrgs.length > 0 || location) {
+          console.log("Fitting bounds to show all markers and user location");
           mapRef.current.fitBounds(bounds, { padding: [50, 50] });
         } else {
           console.log("No markers to show");
@@ -154,7 +183,7 @@ export default function OrgMap({
         mapRef.current = null;
       }
     };
-  }, [organizations, selectedCategories]);
+  }, [organizations, selectedCategories, location]);
 
   return <div id="map" className="w-full h-screen" />;
 }
