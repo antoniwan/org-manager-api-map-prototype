@@ -1,3 +1,5 @@
+import { Brand } from "./mockBrands";
+
 export type Category =
   | "Retail Store"
   | "Outlet Store"
@@ -21,6 +23,7 @@ export interface Organization {
   phone: string;
   hours: string;
   services: string[];
+  brandIds: string[];
 }
 
 export const mockOrganizations: Organization[] = [
@@ -36,6 +39,7 @@ export const mockOrganizations: Organization[] = [
     phone: "(212) 555-1001",
     hours: "Mon-Fri: 8AM-8PM, Sat: 9AM-6PM, Sun: 10AM-5PM",
     services: ["Tool Sales", "Equipment Rental", "Expert Advice"],
+    brandIds: ["1", "2", "3"],
   },
   {
     id: "2",
@@ -48,6 +52,7 @@ export const mockOrganizations: Organization[] = [
     phone: "(212) 555-2002",
     hours: "Mon-Fri: 9AM-5PM",
     services: ["Tool Sales", "Expert Consultation", "Custom Orders"],
+    brandIds: ["2", "4", "6"],
   },
   {
     id: "3",
@@ -60,6 +65,7 @@ export const mockOrganizations: Organization[] = [
     phone: "(212) 555-3003",
     hours: "Mon-Fri: 9AM-5PM",
     services: ["Tool Sales", "Home Goods", "Garden Equipment"],
+    brandIds: ["3", "4", "5", "7"],
   },
   {
     id: "4",
@@ -72,6 +78,7 @@ export const mockOrganizations: Organization[] = [
     phone: "(212) 555-4004",
     hours: "Mon-Fri: 8AM-6PM",
     services: ["Discounted Tools", "Clearance Items", "Bulk Sales"],
+    brandIds: ["1", "2", "3", "4", "5"],
   },
   {
     id: "5",
@@ -84,6 +91,7 @@ export const mockOrganizations: Organization[] = [
     phone: "(212) 555-5005",
     hours: "Mon-Fri: 7AM-4PM",
     services: ["Premium Tools", "Custom Orders", "Expert Consultation"],
+    brandIds: ["6", "7", "8"],
   },
   {
     id: "6",
@@ -96,6 +104,7 @@ export const mockOrganizations: Organization[] = [
     phone: "(212) 555-6006",
     hours: "Mon-Sat: 9AM-5PM",
     services: ["Basic Tools", "Emergency Supplies", "Quick Service"],
+    brandIds: ["9", "10", "11"],
   },
   {
     id: "7",
@@ -108,6 +117,7 @@ export const mockOrganizations: Organization[] = [
     phone: "(212) 555-7007",
     hours: "Varies by Location",
     services: ["Seasonal Tools", "Limited Edition Items", "Special Deals"],
+    brandIds: ["1", "2", "3", "4"],
   },
   {
     id: "8",
@@ -120,6 +130,7 @@ export const mockOrganizations: Organization[] = [
     phone: "(212) 555-8008",
     hours: "Mon-Fri: 8AM-6PM, Sat: 9AM-4PM",
     services: ["Wide Selection", "Bulk Purchase", "Price Matching"],
+    brandIds: ["5", "6", "7", "8", "9", "10"],
   },
   {
     id: "9",
@@ -132,6 +143,7 @@ export const mockOrganizations: Organization[] = [
     phone: "(212) 555-9009",
     hours: "Mon-Fri: 8AM-6PM, Sat: 9AM-2PM",
     services: ["Premium Experience", "Full Product Line", "Expert Staff"],
+    brandIds: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
   },
   {
     id: "10",
@@ -144,6 +156,7 @@ export const mockOrganizations: Organization[] = [
     phone: "(212) 555-1010",
     hours: "Mon-Sat: 9AM-7PM, Sun: 11AM-5PM",
     services: ["Multiple Vendors", "Food Court", "Tool Demonstrations"],
+    brandIds: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
   },
 ];
 
