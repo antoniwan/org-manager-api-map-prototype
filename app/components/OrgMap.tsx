@@ -19,65 +19,122 @@ export default function OrgMap({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Dynamically import Leaflet
-    import("leaflet").then((L) => {
-      // Initialize map if it hasn't been initialized
-      if (!mapRef.current) {
-        mapRef.current = L.map("map", {
-          zoomControl: false,
-          attributionControl: false,
-          scrollWheelZoom: true,
-          doubleClickZoom: true,
-          boxZoom: true,
-          dragging: true,
-          keyboard: true,
-          touchZoom: true,
-        }).setView([40.7128, -74.006], 13);
+    console.log("Initializing map with data:", {
+      organizations,
+      selectedCategories,
+    });
 
-        // Use a simpler tile layer
-        L.tileLayer(
-          "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-          {
+    // Dynamically import Leaflet
+    import("leaflet")
+      .then((L) => {
+        console.log("Leaflet imported successfully");
+
+        // Initialize map if it hasn't been initialized
+        if (!mapRef.current) {
+          console.log("Creating new map instance");
+          mapRef.current = L.map("map", {
+            zoomControl: true,
+            attributionControl: true,
+            scrollWheelZoom: true,
+            doubleClickZoom: true,
+            boxZoom: true,
+            dragging: true,
+            keyboard: true,
+            touchZoom: true,
+          }).setView([40.7128, -74.006], 13);
+
+          // Use a simpler tile layer
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
             maxZoom: 19,
             minZoom: 1,
-          }
-        ).addTo(mapRef.current);
-      }
+            attribution: "© OpenStreetMap contributors",
+          }).addTo(mapRef.current);
+        }
 
-      // Clear existing markers
-      markersRef.current.forEach((marker) => marker.remove());
-      markersRef.current = [];
+        // Clear existing markers
+        markersRef.current.forEach((marker) => marker.remove());
+        markersRef.current = [];
 
-      // Create custom icon
-      const locationIcon = L.divIcon({
-        className: "custom-marker",
-        html: `
+        // Create custom icon
+        const locationIcon = L.divIcon({
+          className: "custom-marker",
+          html: `
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#3B82F6"/>
           </svg>
         `,
-        iconSize: [24, 24],
-        iconAnchor: [12, 24],
-      });
+          iconSize: [24, 24],
+          iconAnchor: [12, 24],
+        });
 
-      // Add markers for filtered organizations
-      const filteredOrgs = organizations.filter((org) =>
-        selectedCategories.includes(org.category)
-      );
+        // Add markers for filtered organizations
+        const filteredOrgs = organizations.filter((org) =>
+          selectedCategories.includes(org.category)
+        );
 
-      filteredOrgs.forEach((org) => {
-        const marker = L.marker([org.latitude, org.longitude], {
-          icon: locationIcon,
-        }).addTo(mapRef.current!).bindPopup(`
-          <div class="p-3">
+        console.log("Filtered organizations:", filteredOrgs);
+
+        // Create a bounds object to fit all markers
+        const bounds = L.latLngBounds([]);
+
+        filteredOrgs.forEach((org) => {
+          console.log("Creating marker for:", org.name, "at:", [
+            org.latitude,
+            org.longitude,
+          ]);
+          const marker = L.marker([org.latitude, org.longitude], {
+            icon: locationIcon,
+          }).addTo(mapRef.current!).bindPopup(`
+          <div class="p-3 max-w-xs">
             <h3 class="font-bold text-lg mb-1">${org.name}</h3>
-            <p class="text-sm text-gray-600 mb-2">${org.description}</p>
-            <span class="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">${org.category}</span>
+            <div class="text-sm text-gray-600 mb-2">${org.description}</div>
+            <div class="space-y-1 text-sm">
+              <div class="flex items-start">
+                <span class="text-gray-500 w-20">Address:</span>
+                <span class="text-gray-700">${org.address}</span>
+              </div>
+              <div class="flex items-center">
+                <span class="text-gray-500 w-20">Phone:</span>
+                <span class="text-gray-700">${org.phone}</span>
+              </div>
+              <div class="flex items-start">
+                <span class="text-gray-500 w-20">Hours:</span>
+                <span class="text-gray-700">${org.hours}</span>
+              </div>
+            </div>
+            <div class="mt-2">
+              <span class="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">${
+                org.category
+              }</span>
+            </div>
+            <div class="mt-2">
+              <h4 class="text-sm font-semibold mb-1">Services:</h4>
+              <div class="flex flex-wrap gap-1">
+                ${org.services
+                  .map(
+                    (service) =>
+                      `<span class="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded-full">${service}</span>`
+                  )
+                  .join("")}
+              </div>
+            </div>
           </div>
         `);
-        markersRef.current.push(marker);
+          markersRef.current.push(marker);
+          bounds.extend([org.latitude, org.longitude]);
+        });
+
+        // Fit the map to show all markers if there are any
+        if (filteredOrgs.length > 0) {
+          console.log("Fitting bounds to show all markers");
+          mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+        } else {
+          console.log("No markers to show");
+        }
+      })
+      .catch((error) => {
+        console.error("Error loading Leaflet:", error);
       });
-    });
 
     return () => {
       if (mapRef.current) {

@@ -3,15 +3,11 @@
 import { useState } from "react";
 import OrgMap from "./components/OrgMap";
 import CategoryFilter from "./components/CategoryFilter";
-import { mockOrganizations, Category } from "./data/mockOrgs";
+import { mockOrganizations, Category, categories } from "./data/mockOrgs";
 
 export default function Home() {
-  const [selectedCategories, setSelectedCategories] = useState<Category[]>([
-    "Education",
-    "Health",
-    "Finance",
-    "Community",
-  ]);
+  const [selectedCategories, setSelectedCategories] =
+    useState<Category[]>(categories);
 
   return (
     <main className="relative w-full h-screen">
