@@ -12,7 +12,8 @@ export default function LocationDetector() {
       // First try to get location from browser
       if ("geolocation" in navigator) {
         const locationToast = toast.loading(
-          "Requesting location permission..."
+          "Requesting location permission...",
+          { id: "location-loading" }
         );
 
         try {
@@ -32,16 +33,20 @@ export default function LocationDetector() {
           });
 
           toast.success("Location detected successfully!", {
-            id: locationToast,
+            id: "location-success",
+            duration: Infinity,
           });
         } catch (error) {
           toast.error(
             "Location permission denied. Trying IP-based detection...",
-            { id: locationToast }
+            { id: "location-error" }
           );
 
           // Fallback to IP-based location
-          const ipLocationToast = toast.loading("Detecting location via IP...");
+          const ipLocationToast = toast.loading(
+            "Detecting location via IP...",
+            { id: "location-ip-loading" }
+          );
           try {
             const response = await fetch("https://ipapi.co/json/");
             const data = await response.json();
@@ -56,18 +61,21 @@ export default function LocationDetector() {
             toast.success(
               `Location detected via IP: ${data.city}, ${data.country_name}`,
               {
-                id: ipLocationToast,
+                id: "location-ip-success",
+                duration: Infinity,
               }
             );
           } catch (ipError) {
             toast.error("Failed to detect location via IP", {
-              id: ipLocationToast,
+              id: "location-ip-error",
             });
           }
         }
       } else {
         // Browser doesn't support geolocation, try IP-based detection
-        const ipLocationToast = toast.loading("Detecting location via IP...");
+        const ipLocationToast = toast.loading("Detecting location via IP...", {
+          id: "location-ip-loading",
+        });
         try {
           const response = await fetch("https://ipapi.co/json/");
           const data = await response.json();
@@ -82,11 +90,12 @@ export default function LocationDetector() {
           toast.success(
             `Location detected via IP: ${data.city}, ${data.country_name}`,
             {
-              id: ipLocationToast,
+              id: "location-ip-success",
+              duration: Infinity,
             }
           );
         } catch (error) {
-          toast.error("Failed to detect location", { id: ipLocationToast });
+          toast.error("Failed to detect location", { id: "location-ip-error" });
         }
       }
     };
