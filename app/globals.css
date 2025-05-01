@@ -28,11 +28,21 @@ body {
 }
 
 /* Marker styles */
-.leaflet-marker-icon {
-  background-color: #fff;
-  border-radius: 50%;
-  padding: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+.custom-marker {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.custom-marker > div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.custom-marker > div:hover {
+  transform: scale(1.1);
 }
 
 /* Popup styles */

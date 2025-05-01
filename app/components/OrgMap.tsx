@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
 import { Organization, Category } from "../data/mockOrgs";
+import CategoryIcon from "./CategoryIcon";
+import { renderToString } from "react-dom/server";
 
 interface OrgMapProps {
   organizations: Organization[];
@@ -55,18 +57,6 @@ export default function OrgMap({
         markersRef.current.forEach((marker) => marker.remove());
         markersRef.current = [];
 
-        // Create custom icon
-        const locationIcon = L.divIcon({
-          className: "custom-marker",
-          html: `
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#3B82F6"/>
-          </svg>
-        `,
-          iconSize: [24, 24],
-          iconAnchor: [12, 24],
-        });
-
         // Add markers for filtered organizations
         const filteredOrgs = organizations.filter((org) =>
           selectedCategories.includes(org.category)
@@ -82,6 +72,22 @@ export default function OrgMap({
             org.latitude,
             org.longitude,
           ]);
+
+          // Create custom icon with CategoryIcon component
+          const locationIcon = L.divIcon({
+            className: "custom-marker",
+            html: renderToString(
+              <div className="bg-white p-2 rounded-full shadow-lg">
+                <CategoryIcon
+                  category={org.category}
+                  className="w-6 h-6 text-blue-600"
+                />
+              </div>
+            ),
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+          });
+
           const marker = L.marker([org.latitude, org.longitude], {
             icon: locationIcon,
           }).addTo(mapRef.current!).bindPopup(`
@@ -108,7 +114,6 @@ export default function OrgMap({
               }</span>
             </div>
             <div class="mt-2">
-              <h4 class="text-sm font-semibold mb-1">Services:</h4>
               <div class="flex flex-wrap gap-1">
                 ${org.services
                   .map(
