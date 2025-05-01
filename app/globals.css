@@ -24,7 +24,7 @@ body {
 
 /* Ensure the map tiles are loaded correctly */
 .leaflet-tile {
-  filter: hue-rotate(0deg) !important;
+  filter: brightness(0.95) contrast(1.1) !important;
 }
 
 /* Marker styles */
@@ -38,11 +38,18 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .custom-marker > div:hover {
-  transform: scale(1.1);
+  transform: scale(1.15);
+  filter: brightness(1.15) drop-shadow(0 4px 16px rgba(0, 0, 0, 0.25));
+  z-index: 10;
+}
+
+.custom-marker > div > div {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  border: 4px solid #fff;
 }
 
 /* Popup styles */
@@ -60,4 +67,9 @@ body {
 /* Debug styles */
 .debug-outline {
   outline: 2px solid red;
+}
+
+/* Map styles */
+.leaflet-container {
+  background-color: #f8f9fa !important;
 }

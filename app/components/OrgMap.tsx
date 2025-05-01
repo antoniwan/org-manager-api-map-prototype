@@ -46,11 +46,16 @@ export default function OrgMap({
           }).setView([40.7128, -74.006], 13);
 
           // Use a simpler tile layer
-          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            maxZoom: 19,
-            minZoom: 1,
-            attribution: "© OpenStreetMap contributors",
-          }).addTo(mapRef.current);
+          L.tileLayer(
+            "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+            {
+              maxZoom: 19,
+              minZoom: 1,
+              attribution:
+                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+              subdomains: "abcd",
+            }
+          ).addTo(mapRef.current);
         }
 
         // Clear existing markers
@@ -77,15 +82,17 @@ export default function OrgMap({
           const locationIcon = L.divIcon({
             className: "custom-marker",
             html: renderToString(
-              <div className="bg-white p-2 rounded-full shadow-lg">
-                <CategoryIcon
-                  category={org.category}
-                  className="w-6 h-6 text-blue-600"
-                />
+              <div className="p-1 rounded-full shadow-xl">
+                <div className="w-14 h-14 rounded-full bg-yellow-400 border-4 border-white flex items-center justify-center">
+                  <CategoryIcon
+                    category={org.category}
+                    className="w-8 h-8 text-white"
+                  />
+                </div>
               </div>
             ),
-            iconSize: [32, 32],
-            iconAnchor: [16, 16],
+            iconSize: [64, 64],
+            iconAnchor: [32, 32],
           });
 
           const marker = L.marker([org.latitude, org.longitude], {
