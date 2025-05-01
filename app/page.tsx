@@ -5,6 +5,8 @@ import { toast } from "react-hot-toast";
 import OrgMap from "./components/OrgMap";
 import CategoryFilter from "./components/CategoryFilter";
 import { mockOrganizations, Category, categories } from "./data/mockOrgs";
+import { LocationProvider } from "./contexts/LocationContext";
+import LocationDetector from "./components/LocationDetector";
 
 export default function Home() {
   const [selectedCategories, setSelectedCategories] =
@@ -48,12 +50,15 @@ export default function Home() {
   }
 
   return (
-    <main className="relative w-full h-screen">
-      <OrgMap
-        organizations={organizations}
-        selectedCategories={selectedCategories}
-      />
-      <CategoryFilter onCategoriesChange={handleCategoriesChange} />
-    </main>
+    <LocationProvider>
+      <LocationDetector />
+      <main className="relative w-full h-screen">
+        <OrgMap
+          organizations={organizations}
+          selectedCategories={selectedCategories}
+        />
+        <CategoryFilter onCategoriesChange={handleCategoriesChange} />
+      </main>
+    </LocationProvider>
   );
 }
