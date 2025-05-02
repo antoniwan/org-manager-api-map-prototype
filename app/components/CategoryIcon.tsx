@@ -9,15 +9,21 @@ import {
   FaGem,
   FaShoppingBasket,
   FaCartPlus,
+  FaMapMarkerAlt,
+  FaPhone,
+  FaClock,
 } from "react-icons/fa";
 import { Category } from "../data/mockOrgs";
 
 interface CategoryIconProps {
-  category: Category;
+  category: Category | "Location" | "Phone" | "Clock";
   className?: string;
 }
 
-const categoryIcons: Record<Category, IconType> = {
+const categoryIcons: Record<
+  Category | "Location" | "Phone" | "Clock",
+  IconType
+> = {
   "Retail Store": FaStore,
   "Outlet Store": FaShoppingBag,
   "Pop-up Shop": FaStoreAlt,
@@ -28,6 +34,9 @@ const categoryIcons: Record<Category, IconType> = {
   "Convenience Store": FaShoppingBasket,
   Supermarket: FaCartPlus,
   "Shopping Mall": FaStoreAlt,
+  Location: FaMapMarkerAlt,
+  Phone: FaPhone,
+  Clock: FaClock,
 };
 
 export default function CategoryIcon({

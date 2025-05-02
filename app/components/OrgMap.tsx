@@ -303,41 +303,43 @@ export default function OrgMap({
 
         const marker = L.marker([org.latitude, org.longitude], {
           icon: locationIcon,
-        }).bindPopup(`
-          <div class="p-3 max-w-xs">
-            <h3 class="font-bold text-lg mb-1">${org.name}</h3>
-            <div class="text-sm text-gray-600 mb-2">${org.description}</div>
-            <div class="space-y-1 text-sm">
-              <div class="flex items-start">
-                <span class="text-gray-500 w-20">Address:</span>
-                <span class="text-gray-700">${org.address}</span>
-              </div>
-              <div class="flex items-center">
-                <span class="text-gray-500 w-20">Phone:</span>
-                <span class="text-gray-700">${org.phone}</span>
-              </div>
-              <div class="flex items-start">
-                <span class="text-gray-500 w-20">Hours:</span>
-                <span class="text-gray-700">${org.hours}</span>
-              </div>
+        }).bindPopup(
+          `
+          <div class="min-w-[280px] bg-white p-3">
+            <div class="flex items-start justify-between mb-2">
+              <h3 class="text-[14px] font-medium">${org.name}</h3>
+              <span class="text-[13px] text-gray-600">${org.category}</span>
             </div>
-            <div class="mt-2">
-              <span class="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">${
-                org.category
-              }</span>
+            
+            <p class="text-[13px] text-gray-600 mb-3">${org.description}</p>
+            
+            <div class="space-y-1">
+              <div class="text-[13px]">${org.address}</div>
+              <div class="text-[13px] text-gray-600">${org.phone}</div>
+              <div class="text-[13px] text-gray-600">${org.hours}</div>
             </div>
-            <div class="mt-2">
+
+            <div class="mt-3 pt-2 border-t border-gray-200">
+              <div class="text-[12px] text-gray-600 mb-1">AVAILABLE SERVICES</div>
               <div class="flex flex-wrap gap-1">
                 ${org.services
                   .map(
                     (service) =>
-                      `<span class="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded-full">${service}</span>`
+                      `<span class="text-[13px]">${service}</span>${
+                        service !== org.services[org.services.length - 1]
+                          ? '<span class="text-gray-400 mx-0.5">•</span>'
+                          : ""
+                      }`
                   )
                   .join("")}
               </div>
             </div>
           </div>
-        `);
+        `,
+          {
+            className: "custom-popup",
+          }
+        );
 
         markersRef.current.push(marker);
         clusterGroup.addLayer(marker);
