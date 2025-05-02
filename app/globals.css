@@ -73,3 +73,24 @@ body {
 .leaflet-container {
   background-color: #f8f9fa !important;
 }
+
+/* Custom cluster styles */
+.custom-cluster {
+  background: transparent !important;
+  border: none !important;
+}
+
+.custom-cluster div {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Ensure proper z-index for clusters */
+.marker-cluster {
+  z-index: 1000;
+}
+
+/* Ensure proper z-index for individual markers */
+.custom-marker {
+  z-index: 1001;
+}

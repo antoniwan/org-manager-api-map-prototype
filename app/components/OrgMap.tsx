@@ -2,12 +2,20 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { Organization, Category } from "../data/mockOrgs";
 import CategoryIcon from "./CategoryIcon";
 import { renderToString } from "react-dom/server";
 import { useLocation } from "../contexts/LocationContext";
-import type L from "leaflet";
 import { toast } from "react-hot-toast";
+
+// Type declarations for Leaflet and marker cluster
+declare global {
+  interface Window {
+    L: any;
+  }
+}
 
 interface OrgMapProps {
   organizations: Organization[];
@@ -20,8 +28,9 @@ export default function OrgMap({
   selectedCategories,
   onOrganizationsChange,
 }: OrgMapProps) {
-  const mapRef = useRef<L.Map | null>(null);
-  const markersRef = useRef<L.Marker[]>([]);
+  const mapRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+  const clusterRef = useRef<any>(null);
   const { location } = useLocation();
   const [isMapReady, setIsMapReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -29,7 +38,7 @@ export default function OrgMap({
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMovingRef = useRef(false);
   const hasInitializedRef = useRef(false);
-  const userMarkerRef = useRef<L.Marker | null>(null);
+  const userMarkerRef = useRef<any>(null);
 
   // Initialize map
   useEffect(() => {
@@ -37,7 +46,9 @@ export default function OrgMap({
 
     const initMap = async () => {
       try {
-        const L = await import("leaflet");
+        // Dynamically import Leaflet and its plugins only on client side
+        const L = (await import("leaflet")).default;
+        await import("leaflet.markercluster");
 
         // Create map instance
         const mapContainer = document.getElementById("map");
@@ -62,7 +73,14 @@ export default function OrgMap({
           dragging: true,
           keyboard: true,
           touchZoom: true,
-        }).setView([40.7128, -74.006], 13);
+        });
+
+        // Set initial view to user's location if available, otherwise use default
+        if (location) {
+          map.setView([location.latitude, location.longitude], 13);
+        } else {
+          map.setView([40.7128, -74.006], 13);
+        }
 
         // Add tile layer
         L.tileLayer(
@@ -109,7 +127,7 @@ export default function OrgMap({
   }, [location]);
 
   const addUserMarker = useCallback(
-    (map: L.Map, userLocation: { latitude: number; longitude: number }) => {
+    (map: any, userLocation: { latitude: number; longitude: number }) => {
       if (userMarkerRef.current) {
         userMarkerRef.current.remove();
       }
@@ -139,7 +157,7 @@ export default function OrgMap({
   );
 
   const setupMapEventListeners = useCallback(
-    (map: L.Map) => {
+    (map: any) => {
       const toastId = "map-loading";
 
       const handleMoveStart = () => {
@@ -205,7 +223,7 @@ export default function OrgMap({
   );
 
   const fetchOrganizationsForBounds = useCallback(
-    async (bounds: L.LatLngBounds) => {
+    async (bounds: any) => {
       if (!onOrganizationsChange) return;
 
       const boundsString = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
@@ -227,12 +245,14 @@ export default function OrgMap({
     if (!isMapReady || !mapRef.current) return;
 
     const updateMarkers = async () => {
-      const L = await import("leaflet");
+      const L = (await import("leaflet")).default;
       const map = mapRef.current;
       if (!map) return;
 
-      // Clear existing markers
-      markersRef.current.forEach((marker) => marker.remove());
+      // Clear existing markers and cluster group
+      if (clusterRef.current) {
+        map.removeLayer(clusterRef.current);
+      }
       markersRef.current = [];
 
       const filteredOrgs = organizations.filter((org) =>
@@ -240,6 +260,29 @@ export default function OrgMap({
       );
 
       const bounds = L.latLngBounds([]);
+
+      // Create new cluster group
+      const clusterGroup = L.markerClusterGroup({
+        iconCreateFunction: function (cluster: any) {
+          const count = cluster.getChildCount();
+          return L.divIcon({
+            html: renderToString(
+              <div className="p-1 rounded-full shadow-xl">
+                <div className="w-14 h-14 rounded-full bg-blue-500 border-4 border-white flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">{count}</span>
+                </div>
+              </div>
+            ),
+            className: "custom-cluster",
+            iconSize: [64, 64],
+            iconAnchor: [32, 32],
+          });
+        },
+        maxClusterRadius: 50,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+      });
 
       filteredOrgs.forEach((org) => {
         const locationIcon = L.divIcon({
@@ -260,7 +303,7 @@ export default function OrgMap({
 
         const marker = L.marker([org.latitude, org.longitude], {
           icon: locationIcon,
-        }).addTo(map).bindPopup(`
+        }).bindPopup(`
           <div class="p-3 max-w-xs">
             <h3 class="font-bold text-lg mb-1">${org.name}</h3>
             <div class="text-sm text-gray-600 mb-2">${org.description}</div>
@@ -295,9 +338,15 @@ export default function OrgMap({
             </div>
           </div>
         `);
+
         markersRef.current.push(marker);
+        clusterGroup.addLayer(marker);
         bounds.extend([org.latitude, org.longitude]);
       });
+
+      // Add cluster group to map
+      clusterRef.current = clusterGroup;
+      map.addLayer(clusterGroup);
 
       if (filteredOrgs.length > 0) {
         map.fitBounds(bounds, {
