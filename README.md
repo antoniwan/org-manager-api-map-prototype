@@ -190,4 +190,4 @@ For any questions or suggestions, please open an issue in the repository.
 
 ---
 
-Built with ❤️ by [Your Name/Organization]
+Built with ❤️
