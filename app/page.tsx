@@ -26,7 +26,7 @@ export default function Home() {
         toast.success("Organizations loaded successfully!", {
           id: loadingToast,
         });
-      } catch (error) {
+      } catch {
         toast.error("Failed to load organizations", { id: loadingToast });
       } finally {
         setIsLoading(false);

@@ -28,9 +28,9 @@ export default function OrgMap({
   selectedCategories,
   onOrganizationsChange,
 }: OrgMapProps) {
-  const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  const clusterRef = useRef<any>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<L.Marker[]>([]);
+  const clusterRef = useRef<InstanceType<typeof import("leaflet").MarkerClusterGroup> | null>(null);
   const { location } = useLocation();
   const [isMapReady, setIsMapReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,7 +38,7 @@ export default function OrgMap({
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMovingRef = useRef(false);
   const hasInitializedRef = useRef(false);
-  const userMarkerRef = useRef<any>(null);
+  const userMarkerRef = useRef<L.Marker | null>(null);
 
   // Initialize map
   useEffect(() => {
@@ -47,8 +47,10 @@ export default function OrgMap({
     const initMap = async () => {
       try {
         // Dynamically import Leaflet and its plugins only on client side
-        const L = (await import("leaflet")).default;
-        await import("leaflet.markercluster");
+        const leaflet = await import("leaflet");
+        const markerCluster = await import("leaflet.markercluster");
+
+        const L = { ...leaflet, ...markerCluster };
 
         // Create map instance
         const mapContainer = document.getElementById("map");
@@ -101,14 +103,14 @@ export default function OrgMap({
 
         // Add user location if available
         if (location) {
-          addUserMarker(map, location);
+          addUserMarker(map, location, L);
         }
 
         // Setup map event listeners
-        setupMapEventListeners(map);
+        setupMapEventListeners(map, L);
 
         // Initial data fetch
-        fetchOrganizationsForBounds(map.getBounds());
+        fetchOrganizationsForBounds(map.getBounds(), L);
       } catch (error) {
         console.error("Error initializing map:", error);
       }
@@ -127,12 +129,11 @@ export default function OrgMap({
   }, [location]);
 
   const addUserMarker = useCallback(
-    (map: any, userLocation: { latitude: number; longitude: number }) => {
+    (map: L.Map, userLocation: { latitude: number; longitude: number }, L: typeof import("leaflet")) => {
       if (userMarkerRef.current) {
         userMarkerRef.current.remove();
       }
 
-      const L = require("leaflet");
       const userIcon = L.divIcon({
         className: "custom-marker",
         html: renderToString(
@@ -157,7 +158,7 @@ export default function OrgMap({
   );
 
   const setupMapEventListeners = useCallback(
-    (map: any) => {
+    (map: L.Map, L: typeof import("leaflet")) => {
       const toastId = "map-loading";
 
       const handleMoveStart = () => {
@@ -223,7 +224,7 @@ export default function OrgMap({
   );
 
   const fetchOrganizationsForBounds = useCallback(
-    async (bounds: any) => {
+    async (bounds: L.LatLngBounds, L: typeof import("leaflet")) => {
       if (!onOrganizationsChange) return;
 
       const boundsString = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
@@ -245,7 +246,10 @@ export default function OrgMap({
     if (!isMapReady || !mapRef.current) return;
 
     const updateMarkers = async () => {
-      const L = (await import("leaflet")).default;
+      const leaflet = await import("leaflet");
+      const markerCluster = await import("leaflet.markercluster");
+      const L = { ...leaflet, ...markerCluster };
+
       const map = mapRef.current;
       if (!map) return;
 
@@ -263,7 +267,7 @@ export default function OrgMap({
 
       // Create new cluster group
       const clusterGroup = L.markerClusterGroup({
-        iconCreateFunction: function (cluster: any) {
+        iconCreateFunction: function (cluster) {
           const count = cluster.getChildCount();
           return L.divIcon({
             html: renderToString(

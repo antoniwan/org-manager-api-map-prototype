@@ -1,5 +1,3 @@
-import { Brand } from "./mockBrands";
-
 export type Category =
   | "Retail Store"
   | "Outlet Store"

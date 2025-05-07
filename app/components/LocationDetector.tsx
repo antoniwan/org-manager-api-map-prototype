@@ -11,10 +11,9 @@ export default function LocationDetector() {
     const detectLocation = async () => {
       // First try to get location from browser
       if ("geolocation" in navigator) {
-        const locationToast = toast.loading(
-          "Requesting location permission...",
-          { id: "location-loading" }
-        );
+        toast.loading("Requesting location permission...", {
+          id: "location-loading",
+        });
 
         try {
           const position = await new Promise<GeolocationPosition>(
@@ -36,17 +35,13 @@ export default function LocationDetector() {
             id: "location-success",
             duration: Infinity,
           });
-        } catch (error) {
+        } catch {
           toast.error(
             "Location permission denied. Trying IP-based detection...",
             { id: "location-error" }
           );
 
           // Fallback to IP-based location
-          const ipLocationToast = toast.loading(
-            "Detecting location via IP...",
-            { id: "location-ip-loading" }
-          );
           try {
             const response = await fetch("https://ipapi.co/json/");
             const data = await response.json();
@@ -65,7 +60,7 @@ export default function LocationDetector() {
                 duration: Infinity,
               }
             );
-          } catch (ipError) {
+          } catch {
             toast.error("Failed to detect location via IP", {
               id: "location-ip-error",
             });
@@ -73,7 +68,7 @@ export default function LocationDetector() {
         }
       } else {
         // Browser doesn't support geolocation, try IP-based detection
-        const ipLocationToast = toast.loading("Detecting location via IP...", {
+        toast.loading("Detecting location via IP...", {
           id: "location-ip-loading",
         });
         try {
@@ -94,7 +89,7 @@ export default function LocationDetector() {
               duration: Infinity,
             }
           );
-        } catch (error) {
+        } catch {
           toast.error("Failed to detect location", { id: "location-ip-error" });
         }
       }
